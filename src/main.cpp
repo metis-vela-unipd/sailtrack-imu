@@ -1,10 +1,13 @@
 #include <Arduino.h>
 #include <SPI.h>
+
 #include <SailtrackModule.h>
 #include <Adafruit_FXOS8700.h>
 #include <Adafruit_FXAS21002C.h>
 #include <Adafruit_AHRS.h>
 #include <Adafruit_Sensor_Calibration.h>
+#include <Battery18650Stats.h>
+
 
 // -------------------------- Configuration -------------------------- //
 
@@ -17,6 +20,7 @@
 #define BATTERY_ESP32_REF_VOLTAGE	3.3
 #define BATTERY_NUM_READINGS 		32
 #define BATTERY_READING_DELAY_MS	20
+#define MIN_USB_VOLTAGE				4.11
 
 #define I2C_SDA_PIN 				27
 #define I2C_SCL_PIN 				25
@@ -32,6 +36,7 @@ Adafruit_FXAS21002C fxas = Adafruit_FXAS21002C(0x0021002C);
 Adafruit_NXPSensorFusion filter;
 Adafruit_Sensor_Calibration_EEPROM cal;
 Adafruit_Sensor *accelerometer, *gyroscope, *magnetometer;
+Battery18650Stats batteryStats(BATTERY_ADC_PIN);
 
 float eulerX, eulerY, eulerZ;
 float linearAccelX, linearAccelY, linearAccelZ;
@@ -39,14 +44,33 @@ float linearAccelX, linearAccelY, linearAccelZ;
 class ModuleCallbacks: public SailtrackModuleCallbacks {
 	void onStatusPublish(JsonObject status) {
 		JsonObject battery = status.createNestedObject("battery");
-		float avg = 0;
-		for (int i = 0; i < BATTERY_NUM_READINGS; i++) {
-			avg += analogRead(BATTERY_ADC_PIN) / BATTERY_NUM_READINGS;
-			delay(BATTERY_READING_DELAY_MS);
-		}
-		battery["voltage"] = 2 * avg / BATTERY_ADC_RESOLUTION * BATTERY_ESP32_REF_VOLTAGE * BATTERY_ADC_REF_VOLTAGE;
+		battery["voltage"] = batteryStats.getBatteryVolts();
+		battery["percentage"] = batteryStats.getBatteryChargeLevel(true);
 	}
+
+	uint32_t notificationLed(){
+		int batteryPerc = batteryStats.getBatteryChargeLevel(true);
+		if(batteryStats.getBatteryVolts() >= MIN_USB_VOLTAGE){
+			return 0x0000FF00;
+		}
+
+		if(batteryPerc<=20){
+			return 0x00FF0000;
+		}
+
+		if (batteryPerc>20 && batteryPerc<90){
+			return 0x000000FF;
+		}
+
+		if (batteryPerc>=90){
+			return 0x00FF00FF;
+		}
+
+		return 0x00000000;
+	}
+
 };
+
 
 void mqttTask(void * pvArguments) {
 	TickType_t lastWakeTime = xTaskGetTickCount();
@@ -86,7 +110,7 @@ void beginAHRS() {
 }
 
 void setup() {
-	stm.begin("imu", IPAddress(192, 168, 42, 102), new ModuleCallbacks());
+	stm.begin("imu0", IPAddress(192, 168, 42, 111), new ModuleCallbacks());
 	beginIMU();
 	beginAHRS();
 	xTaskCreate(mqttTask, "mqttTask", STM_TASK_MEDIUM_STACK_SIZE, NULL, STM_TASK_MEDIUM_PRIORITY, NULL);
