@@ -8,7 +8,7 @@
 // -------------------------- Configuration -------------------------- //
 
 #define MQTT_PUBLISH_FREQ_HZ		5
-#define AHRS_UPDATE_FREQ_HZ			100
+#define AHRS_UPDATE_FREQ_HZ			10
 
 #define BATTERY_ADC_PIN 			35
 #define BATTERY_ADC_RESOLUTION 		4095
@@ -31,7 +31,6 @@ Adafruit_NXPSensorFusion filter;
 Adafruit_Sensor_Calibration_EEPROM cal;
 float eulerX, eulerY, eulerZ;
 float linearAccelX, linearAccelY, linearAccelZ;
-float IMUTemp;
 
 class ModuleCallbacks: public SailtrackModuleCallbacks {
 	void onStatusPublish(JsonObject status) {
@@ -60,8 +59,6 @@ void mqttTask(void * pvArguments) {
 		linearAccel["y"] = linearAccelY;
 		linearAccel["z"] = linearAccelZ;
 
-		doc["IMUTemp"] = IMUTemp;
-
 		stm.publish("sensor/imu0", doc.as<JsonObjectConst>());
 
 		vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(MQTT_TASK_INTERVAL_MS));
@@ -70,10 +67,10 @@ void mqttTask(void * pvArguments) {
 
 void beginIMU() {
 	Wire.setPins(I2C_SDA_PIN, I2C_SCL_PIN);
+	lsm.begin();
 	lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);
-  	lsm.setupMag(lsm.LSM9DS1_MAGGAIN_16GAUSS);
-  	lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_500DPS);
-	Wire.setClock(400000);
+  	lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);
+  	lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
 }
 
 void beginAHRS() {
@@ -92,7 +89,7 @@ void setup() {
 void loop() {
 	TickType_t lastWakeTime = xTaskGetTickCount();
 	sensors_event_t accelEvent, gyroEvent, magEvent, tempEvent;
-	lsm.read();
+
 	lsm.getEvent(&accelEvent, &magEvent, &gyroEvent, &tempEvent); 
 
 	cal.calibrate(accelEvent);
@@ -117,6 +114,5 @@ void loop() {
 
 	filter.getLinearAcceleration(&linearAccelX, &linearAccelY, &linearAccelZ); 
 
-	IMUTemp = tempEvent.temperature;
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(LOOP_TASK_INTERVAL_MS));
 }
