@@ -100,9 +100,10 @@ void setup(void) {
     Wire.setPins(I2C_SDA_PIN, I2C_SCL_PIN);
     cal.begin();
     cal.loadCalibration();
+    lsm.begin();
     lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);
-  	lsm.setupMag(lsm.LSM9DS1_MAGGAIN_16GAUSS);
-  	lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_500DPS);
+  	lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);
+  	lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
 	Wire.setClock(400000);
 }
 

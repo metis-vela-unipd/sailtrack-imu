@@ -8,7 +8,7 @@
 // -------------------------- Configuration -------------------------- //
 
 #define MQTT_PUBLISH_FREQ_HZ		5
-#define AHRS_UPDATE_FREQ_HZ			10
+#define AHRS_UPDATE_FREQ_HZ			5
 
 #define BATTERY_ADC_PIN 			35
 #define BATTERY_ADC_RESOLUTION 		4095
@@ -20,7 +20,7 @@
 #define I2C_SDA_PIN 				27
 #define I2C_SCL_PIN 				25
 
-#define LOOP_TASK_INTERVAL_MS		1000 / AHRS_UPDATE_FREQ_HZ
+#define LOOP_TASK_INTERVAL_MS		5
 #define MQTT_TASK_INTERVAL_MS	 	1000 / MQTT_PUBLISH_FREQ_HZ
 
 // ------------------------------------------------------------------- //
