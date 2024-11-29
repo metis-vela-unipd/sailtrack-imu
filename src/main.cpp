@@ -1,9 +1,7 @@
 #include <Arduino.h>
 #include <SPI.h>
-
 #include <SailtrackModule.h>
-#include <Adafruit_FXOS8700.h>
-#include <Adafruit_FXAS21002C.h>
+#include <Adafruit_LSM9DS1.h>
 #include <Adafruit_AHRS.h>
 #include <Adafruit_Sensor_Calibration.h>
 #include <Battery18650Stats.h>
@@ -19,7 +17,6 @@
 #define BATTERY_ADC_REF_VOLTAGE 	1.1
 #define BATTERY_ESP32_REF_VOLTAGE	3.3
 #define BATTERY_NUM_READINGS 		32
-#define BATTERY_READING_DELAY_MS	20
 #define MIN_USB_VOLTAGE				4.11
 
 #define I2C_SDA_PIN 				27
@@ -31,12 +28,10 @@
 // ------------------------------------------------------------------- //
 
 SailtrackModule stm;
-Adafruit_FXOS8700 fxos = Adafruit_FXOS8700(0x8700A, 0x8700B);
-Adafruit_FXAS21002C fxas = Adafruit_FXAS21002C(0x0021002C);
+Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
 Adafruit_NXPSensorFusion filter;
 Adafruit_Sensor_Calibration_EEPROM cal;
-Adafruit_Sensor *accelerometer, *gyroscope, *magnetometer;
-Battery18650Stats batteryStats(BATTERY_ADC_PIN);
+Battery18650Stats batteryStats(BATTERY_ADC_PIN, DEFAULT_CONVERSION_FACTOR, BATTERY_NUM_READINGS);
 
 float eulerX, eulerY, eulerZ;
 float linearAccelX, linearAccelY, linearAccelZ;
@@ -95,12 +90,11 @@ void mqttTask(void * pvArguments) {
 
 void beginIMU() {
 	Wire.setPins(I2C_SDA_PIN, I2C_SCL_PIN);
-	fxos.begin();
-	fxas.begin();
-	accelerometer = fxos.getAccelerometerSensor();
-	gyroscope = &fxas;
-  	magnetometer = fxos.getMagnetometerSensor();
-	Wire.setClock(400000);
+	lsm.begin();
+	lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);
+  	lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);
+  	lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
+	// Wire.setClock(400000);
 }
 
 void beginAHRS() {
@@ -110,7 +104,7 @@ void beginAHRS() {
 }
 
 void setup() {
-	stm.begin("imu0", IPAddress(192, 168, 42, 111), new ModuleCallbacks());
+	stm.begin("imu0", IPAddress(192, 168, 42, 102), new ModuleCallbacks());
 	beginIMU();
 	beginAHRS();
 	xTaskCreate(mqttTask, "mqttTask", STM_TASK_MEDIUM_STACK_SIZE, NULL, STM_TASK_MEDIUM_PRIORITY, NULL);
@@ -118,11 +112,9 @@ void setup() {
 
 void loop() {
 	TickType_t lastWakeTime = xTaskGetTickCount();
-	sensors_event_t accelEvent, gyroEvent, magEvent;
+	sensors_event_t accelEvent, gyroEvent, magEvent, tempEvent;
 
-	accelerometer->getEvent(&accelEvent);
-	gyroscope->getEvent(&gyroEvent);
-	magnetometer->getEvent(&magEvent);
+	lsm.getEvent(&accelEvent, &magEvent, &gyroEvent, &tempEvent); 
 
 	cal.calibrate(accelEvent);
 	cal.calibrate(gyroEvent);
