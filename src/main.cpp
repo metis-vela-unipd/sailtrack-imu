@@ -1,15 +1,14 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <SailtrackModule.h>
-#include <Adafruit_FXOS8700.h>
-#include <Adafruit_FXAS21002C.h>
+#include <Adafruit_LSM9DS1.h>
 #include <Adafruit_AHRS.h>
 #include <Adafruit_Sensor_Calibration.h>
 
 // -------------------------- Configuration -------------------------- //
 
 #define MQTT_PUBLISH_FREQ_HZ		5
-#define AHRS_UPDATE_FREQ_HZ			100
+#define AHRS_UPDATE_FREQ_HZ			5
 
 #define BATTERY_ADC_PIN 			35
 #define BATTERY_ADC_RESOLUTION 		4095
@@ -21,18 +20,15 @@
 #define I2C_SDA_PIN 				27
 #define I2C_SCL_PIN 				25
 
-#define LOOP_TASK_INTERVAL_MS		1000 / AHRS_UPDATE_FREQ_HZ
+#define LOOP_TASK_INTERVAL_MS		5
 #define MQTT_TASK_INTERVAL_MS	 	1000 / MQTT_PUBLISH_FREQ_HZ
 
 // ------------------------------------------------------------------- //
 
 SailtrackModule stm;
-Adafruit_FXOS8700 fxos = Adafruit_FXOS8700(0x8700A, 0x8700B);
-Adafruit_FXAS21002C fxas = Adafruit_FXAS21002C(0x0021002C);
+Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
 Adafruit_NXPSensorFusion filter;
 Adafruit_Sensor_Calibration_EEPROM cal;
-Adafruit_Sensor *accelerometer, *gyroscope, *magnetometer;
-
 float eulerX, eulerY, eulerZ;
 float linearAccelX, linearAccelY, linearAccelZ;
 
@@ -71,12 +67,10 @@ void mqttTask(void * pvArguments) {
 
 void beginIMU() {
 	Wire.setPins(I2C_SDA_PIN, I2C_SCL_PIN);
-	fxos.begin();
-	fxas.begin();
-	accelerometer = fxos.getAccelerometerSensor();
-	gyroscope = &fxas;
-  	magnetometer = fxos.getMagnetometerSensor();
-	Wire.setClock(400000);
+	lsm.begin();
+	lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);
+  	lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);
+  	lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS);
 }
 
 void beginAHRS() {
@@ -94,11 +88,9 @@ void setup() {
 
 void loop() {
 	TickType_t lastWakeTime = xTaskGetTickCount();
-	sensors_event_t accelEvent, gyroEvent, magEvent;
+	sensors_event_t accelEvent, gyroEvent, magEvent, tempEvent;
 
-	accelerometer->getEvent(&accelEvent);
-	gyroscope->getEvent(&gyroEvent);
-	magnetometer->getEvent(&magEvent);
+	lsm.getEvent(&accelEvent, &magEvent, &gyroEvent, &tempEvent); 
 
 	cal.calibrate(accelEvent);
 	cal.calibrate(gyroEvent);
