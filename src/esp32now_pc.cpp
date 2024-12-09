@@ -1,31 +1,6 @@
 #include <Arduino.h>
 #include <esp_now.h>
 #include <WiFi.h>
-/*
-void onReceive(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
-  Serial.print("Message received: ");
-  Serial.println((char *)data);
-}
-
-void setup() {
-  Serial.begin(115200);
-
-  // Initialize Wi-Fi in Station mode
-  WiFi.mode(WIFI_STA);
-
-  // Initialize ESP-NOW
-  if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
-    return;
-  }
-
-  // Register the receive callback
-  esp_now_register_recv_cb(onReceive);
-}
-
-void loop() {
-  // Do nothing, waiting for messages
-}*/
 
 // Structure example to receive data
 // Must match the sender structure
@@ -33,6 +8,7 @@ typedef struct struct_message {
     int accelT[3];
     int gyroT[3];
     int magT[3];
+    int counter;
 } struct_message;
 
 // Create a struct_message called myData
@@ -68,6 +44,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.println(" y uT");
   Serial.print(myData.magT[2]);
   Serial.println(" z uT");
+  Serial.print("Pac no:");
+  Serial.println(myData.counter);
 
 
 }
