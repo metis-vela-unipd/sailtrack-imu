@@ -4,50 +4,101 @@
 
 // Structure example to receive data
 // Must match the sender structure
-typedef struct struct_message {
-    int accelT[3];
-    int gyroT[3];
-    int magT[3];
-    int counter;
-} struct_message;
+typedef struct raw_message {
+  int id;
+  int accelT[3];
+  int gyroT[3];
+  int magT[3];
+
+} raw_message;
+
+typedef struct cal1_message
+{
+  int id;
+  double accelT[3];
+  double gyroT[3];
+  double magT[4];
+} cal1_message;
+
+typedef struct cal2_message
+{
+  int id;
+  double softiron[9];
+} cal2_message;
 
 // Create a struct_message called myData
-struct_message myData;
+raw_message myData;
+cal1_message cal1Msg;
+cal2_message cal2Msg;
 
 // callback function that will be executed when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
-  Serial.print("Bytes received: ");
-  Serial.println(len);
+  memcpy(&cal1Msg, incomingData, sizeof(cal1Msg));
+  memcpy(&cal2Msg, incomingData, sizeof(cal2Msg));
+  if(myData.id==1) 
+  {
+    Serial.print("Raw:");
 
-  Serial.println("Accel: x, y, z  ");
-  Serial.print(myData.accelT[0]);
-  Serial.println(" x m/s^2");
-  Serial.print(myData.accelT[1]);
-  Serial.println(" y m/s^2");
-  Serial.print(myData.accelT[2]);
-  Serial.println(" z m/s^2");
+    for(int i=0;i<3;i++)
+    {
+      Serial.print(myData.accelT[i]);
+      Serial.print(",");
+    }
+
+    for(int i=0;i<3;i++)
+    {
+      Serial.print(myData.gyroT[i]);
+      Serial.print(",");
+
+    }
+
+    for(int i=0;i<2;i++)
+    {
+      Serial.print(myData.magT[i]);
+      Serial.print(",");
+    }
+    Serial.print(myData.magT[2]);
+    Serial.println();
+  }
+
+  else if (cal1Msg.id==2)
+  {
+    Serial.print("Cal1:");
+
+    for(int i=0;i<3;i++)
+    {
+      Serial.print(cal1Msg.accelT[i]);
+      Serial.print(",");
+    }
+
+    for(int i=0;i<3;i++)
+    {
+      Serial.print(cal1Msg.gyroT[i]);
+      Serial.print(",");
+    }
+
+    for(int i=0;i<3;i++)
+    {
+      Serial.print(cal1Msg.magT[i]);
+      Serial.print(",");
+    }
+    Serial.print(cal1Msg.magT[3]);
+    Serial.println();
+  }
+
+  else if(cal2Msg.id==3)
+  {
+    Serial.print("Cal2:");
+    for(int i=0;i<8;i++)
+    {
+      Serial.print(cal2Msg.softiron[i]);
+      Serial.print(",");
+    }
+    Serial.print(cal2Msg.softiron[8]);
+    Serial.println();
+  }
   
-
-  Serial.println("gyro: x, y, z  ");
-  Serial.print(myData.gyroT[0]);
-  Serial.println(" x rad/s");
-  Serial.print(myData.gyroT[1]);
-  Serial.println(" y rad/s");
-  Serial.print(myData.gyroT[2]);
-  Serial.println(" z rad/s");
-
-  Serial.println("mag: x, y, z  ");
-  Serial.print(myData.magT[0]);
-  Serial.println(" x uT");
-  Serial.print(myData.magT[1]);
-  Serial.println(" y uT");
-  Serial.print(myData.magT[2]);
-  Serial.println(" z uT");
-  Serial.print("Pac no:");
-  Serial.println(myData.counter);
-
-
 }
  
 void setup() {
@@ -65,9 +116,9 @@ void setup() {
   
   // Once ESPNow is successfully Init, we will register for recv CB to
   // get recv packer info
-  esp_now_register_recv_cb(OnDataRecv);
+  
 }
  
 void loop() {
-
+  esp_now_register_recv_cb(OnDataRecv);
 }
