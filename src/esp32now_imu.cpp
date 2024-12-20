@@ -1,4 +1,3 @@
-
 #include <Wire.h>
 #include <Adafruit_LSM9DS1.h>
 #include <iostream>
@@ -20,10 +19,10 @@ Adafruit_Sensor_Calibration_EEPROM cal;
 #define LSM9DS1_MCK  0x1E  // Magnetometer
 
 
-uint8_t broadcastAddress[] = {0xA0, 0xA3, 0xB3, 0x19, 0x5E, 0x14};
+uint8_t broadcastAddress[] = {0xA0, 0xA3, 0xB3, 0x1A, 0x4D, 0x60};
 
 int loopcount = 0;
-float offsets[16];
+
 // 1=raw, 2=cal1, 3=cal2
 
 // Structure example to send data
@@ -50,36 +49,49 @@ typedef struct cal2_message
   double softiron[9];
 } cal2_message;
 
+typedef struct cal_values{
+  float offsets_sent[16];
+} cal_values;
+
+raw_message myData;
+cal1_message cal1Msg;
+cal2_message cal2Msg;
+cal_values calVal;
 
 
 void receiveCalibration() {
-    cal.accel_zerog[0] = offsets[0];
-    cal.accel_zerog[1] = offsets[1];
-    cal.accel_zerog[2] = offsets[2];
+    cal.accel_zerog[0] = calVal.offsets_sent[0];
+    cal.accel_zerog[1] = calVal.offsets_sent[1];
+    cal.accel_zerog[2] = calVal.offsets_sent[2];
 
-    cal.gyro_zerorate[0] = offsets[3];
-    cal.gyro_zerorate[1] = offsets[4];
-    cal.gyro_zerorate[2] = offsets[5];
+    cal.gyro_zerorate[0] = calVal.offsets_sent[3];
+    cal.gyro_zerorate[1] = calVal.offsets_sent[4];
+    cal.gyro_zerorate[2] = calVal.offsets_sent[5];
 
-    cal.mag_hardiron[0] = offsets[6];
-    cal.mag_hardiron[1] = offsets[7];
-    cal.mag_hardiron[2] = offsets[8];
+    cal.mag_hardiron[0] = calVal.offsets_sent[6];
+    cal.mag_hardiron[1] = calVal.offsets_sent[7];
+    cal.mag_hardiron[2] = calVal.offsets_sent[8];
 
-    cal.mag_field = offsets[9];
+    cal.mag_field = calVal.offsets_sent[9];
 
-    cal.mag_softiron[0] = offsets[10];
-    cal.mag_softiron[1] = offsets[13];
-    cal.mag_softiron[2] = offsets[14];
-    cal.mag_softiron[3] = offsets[13];
-    cal.mag_softiron[4] = offsets[11];
-    cal.mag_softiron[5] = offsets[15];
-    cal.mag_softiron[6] = offsets[14];
-    cal.mag_softiron[7] = offsets[15];
-    cal.mag_softiron[8] = offsets[12];
+    cal.mag_softiron[0] = calVal.offsets_sent[10];
+    cal.mag_softiron[1] = calVal.offsets_sent[13];
+    cal.mag_softiron[2] = calVal.offsets_sent[14];
+    cal.mag_softiron[3] = calVal.offsets_sent[13];
+    cal.mag_softiron[4] = calVal.offsets_sent[11];
+    cal.mag_softiron[5] = calVal.offsets_sent[15];
+    cal.mag_softiron[6] = calVal.offsets_sent[14];
+    cal.mag_softiron[7] = calVal.offsets_sent[15];
+    cal.mag_softiron[8] = calVal.offsets_sent[12];
 
     cal.saveCalibration();
 
     //ToDo: add a led for notifying the calibiration status !!!
+
+  pinMode(27,OUTPUT);
+  digitalWrite(27,HIGH);
+  delay(2000);
+  digitalWrite(27,LOW);
   
 }
 
@@ -92,9 +104,7 @@ double power(int base, int exponent) {
 }
 
 // Create a struct_message called myData
-raw_message myData;
-cal1_message cal1Msg;
-cal2_message cal2Msg;
+
 
 esp_now_peer_info_t peerInfo;
 
@@ -104,7 +114,11 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
-//fine parte per comunicare
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&calVal, incomingData, sizeof(calVal));
+}
+
+
 
 void setup() {
   
@@ -141,6 +155,7 @@ void setup() {
   // Once ESPNow is successfully Init, we will register for Send CB to
   // get the status of Transmitted packet
   esp_now_register_send_cb(OnDataSent);
+  esp_now_register_recv_cb(OnDataRecv);
   
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
@@ -159,24 +174,24 @@ void setup() {
 void loop() {
   esp_err_t result;
   // Read accelerometer data
-  sensors_event_t accel, gyro, mag, temp;
+  sensors_event_t accelEvent, gyroEvent, magEvent, tempEvent;
   lsm.read();
-  lsm.getEvent( &accel, &gyro, &mag, &temp);
+  lsm.getEvent(&accelEvent, &magEvent, &gyroEvent, &tempEvent);
 
-  // Print accelerometer data
-  Serial.print("Accel X: "); Serial.print(accel.acceleration.x); Serial.print(" m/s^2, ");
-  Serial.print("Y: "); Serial.print(accel.acceleration.y); Serial.print(" m/s^2, ");
-  Serial.print("Z: "); Serial.println(accel.acceleration.z); Serial.println(" m/s^2");
+  /*// Print accelerometer data
+  Serial.print("Accel X: "); Serial.print(accelEvent.acceleration.x); Serial.print(" m/s^2, ");
+  Serial.print("Y: "); Serial.print(accelEvent.acceleration.y); Serial.print(" m/s^2, ");
+  Serial.print("Z: "); Serial.println(accelEvent.acceleration.z); Serial.println(" m/s^2");
 
   // Print gyroscope data
-  Serial.print("Gyro X: "); Serial.print(gyro.gyro.x); Serial.print(" rad/s, ");
-  Serial.print("Y: "); Serial.print(gyro.gyro.y); Serial.print(" rad/s, ");
-  Serial.print("Z: "); Serial.println(gyro.gyro.z); Serial.println(" rad/s");
+  Serial.print("Gyro X: "); Serial.print(gyroEvent.gyro.x); Serial.print(" rad/s, ");
+  Serial.print("Y: "); Serial.print(gyroEvent.gyro.y); Serial.print(" rad/s, ");
+  Serial.print("Z: "); Serial.println(gyroEvent.gyro.z); Serial.println(" rad/s");
 
   // Print magnetometer data
-  Serial.print("Mag X: "); Serial.print(mag.magnetic.x); Serial.print(" uT, ");
-  Serial.print("Y: "); Serial.print(mag.magnetic.y); Serial.print(" uT, ");
-  Serial.print("Z: "); Serial.println(mag.magnetic.z); Serial.println(" uT");
+  Serial.print("Mag X: "); Serial.print(magEvent.magnetic.x * 10); Serial.print(" uT, ");
+  Serial.print("Y: "); Serial.print(magEvent.magnetic.y * 10); Serial.print(" uT, ");
+  Serial.print("Z: "); Serial.println(magEvent.magnetic.z * 10); Serial.println(" uT");*/
   
   
   
@@ -219,17 +234,17 @@ void loop() {
     }
   else{
       myData.id=1;
-      myData.accelT[0]=accel.acceleration.x * 8192 / SENSORS_GRAVITY_STANDARD;
-      myData.accelT[1]=accel.acceleration.y * 8192 / SENSORS_GRAVITY_STANDARD;
-      myData.accelT[2]=accel.acceleration.z * 8192 / SENSORS_GRAVITY_STANDARD;
+      myData.accelT[0]=accelEvent.acceleration.x * 8192 / SENSORS_GRAVITY_STANDARD;
+      myData.accelT[1]=accelEvent.acceleration.y * 8192 / SENSORS_GRAVITY_STANDARD;
+      myData.accelT[2]=accelEvent.acceleration.z * 8192 / SENSORS_GRAVITY_STANDARD;
 
-      myData.gyroT[0]=gyro.gyro.x * SENSORS_RADS_TO_DPS * 16;
-      myData.gyroT[1]=gyro.gyro.y * SENSORS_RADS_TO_DPS * 16;
-      myData.gyroT[2]=gyro.gyro.z * SENSORS_RADS_TO_DPS * 16;
+      myData.gyroT[0]=gyroEvent.gyro.x * SENSORS_RADS_TO_DPS * 16;
+      myData.gyroT[1]=gyroEvent.gyro.y * SENSORS_RADS_TO_DPS * 16;
+      myData.gyroT[2]=gyroEvent.gyro.z * SENSORS_RADS_TO_DPS * 16;
 
-      myData.magT[0]=mag.magnetic.x * 10;
-      myData.magT[1]=mag.magnetic.y * 10;
-      myData.magT[2]=mag.magnetic.z * 10;
+      myData.magT[0]=magEvent.magnetic.x * 10;
+      myData.magT[1]=magEvent.magnetic.y * 10;
+      myData.magT[2]=magEvent.magnetic.z * 10;
 
       esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
 
@@ -237,21 +252,6 @@ void loop() {
   Serial.println(myData.id);
   Serial.println(cal1Msg.id);
   Serial.println(cal2Msg.id);
-
-
-
-  
-
-
- // Send message via ESP-NOW
-  //esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
-   
- /* if (result == ESP_OK) {
-    Serial.println("Sent with success");
-  }
-  else {
-    Serial.println("Error sending the data");
-  }*/
 
   delay(10);
 }
