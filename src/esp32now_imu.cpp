@@ -1,10 +1,10 @@
-#include <Wire.h>
+#include <Wire.h> //Probably not needed
 #include <Adafruit_LSM9DS1.h>
-#include <iostream>
-#include <string>
+#include <iostream> //Probably not needed
+#include <string> //Probably not needed
 #include <esp_now.h>
 #include <WiFi.h>
-#include <Arduino.h>
+#include <Arduino.h> 
 #include <Adafruit_Sensor_Calibration.h>
 
 #define I2C_SDA_PIN 27
