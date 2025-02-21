@@ -91,23 +91,12 @@ void receiveCalibration() {
 
 
   //test for calibration reciving
-  pinMode(27,OUTPUT);
-  digitalWrite(27,HIGH);
+  pinMode(32,OUTPUT);
+  digitalWrite(32,HIGH);
   delay(2000);
-  digitalWrite(27,LOW);
+  digitalWrite(32,LOW);
   
 }
-
-// not being used. Have to try the code without it
-double power(int base, int exponent) {
-    double result = 1;
-    for (int i = 0; i < exponent; ++i) {
-        result *= base;
-    }
-    return result;
-}
-
-
 
 
 esp_now_peer_info_t peerInfo;
@@ -121,6 +110,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 // Data reciving function
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&calVal, incomingData, sizeof(calVal));
+  receiveCalibration();
 }
 
 
@@ -159,8 +149,7 @@ void setup() {
 
 
   esp_now_register_send_cb(OnDataSent);
-  esp_now_register_recv_cb(OnDataRecv);
-  
+  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv)); //bu değişti  
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;  
@@ -188,6 +177,8 @@ void loop() {
   myData.id=0;
   cal1Msg.id=0;
   cal2Msg.id=0;
+
+
 
 
 // Function for the types of data being sent

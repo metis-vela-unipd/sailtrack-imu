@@ -12,6 +12,9 @@ void setup() {
   String macAddress = WiFi.macAddress();
   Serial.print("ESP32 MAC Address: ");
   Serial.println(macAddress);
+
+  pinMode(32,OUTPUT);
+  digitalWrite(32,HIGH);
 }
 
 void loop() {
