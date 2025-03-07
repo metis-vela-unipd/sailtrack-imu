@@ -42,7 +42,7 @@ cal1_message cal1Msg;
 cal2_message cal2Msg;
 cal_values calVal;
 
-
+//Provided funcitons for receiving data from MotionCal
 byte calData[68];
 byte calCount = 0;
 
@@ -57,58 +57,6 @@ uint16_t crc16Update(uint16_t crc, uint8_t a) {
     }
     return crc;
 }
-/*
-//Calibration function
-void receiveCalibration() {
-  uint16_t crc;
-  byte b, i;
-
-  while (Serial.available()) {
-    b = Serial.read();
-    if (calCount == 0 && b != 117)
-      return;
-    if (calCount == 1 && b != 84) {
-      calCount = 0;
-      return;
-    }
-
-    calData[calCount++] = b;
-    if (calCount < 68){
-      return;
-    }
-    crc = 0xFFFF;
-    for (i = 0; i < 68; i++){
-      crc = crc16Update(crc, calData[i]);
-    }
-    if (!crc) {
-      float offsets[16];
-      memcpy(offsets, calData + 2, 16 * 4);
-      
-      for(int i=0;i<16;i++)
-      {
-        calVal.offsets_sent[i]=offsets[i];
-      }
-        
-      calCount = 0;
-      return;
-    }
-
-  for (i = 2; i < 67; i++) {
-    if (calData[i] == 117 && calData[i + 1] == 84) {
-      calCount = 68 - i;
-      memmove(calData, calData + i, calCount);
-      return;
-     }
-  }
-
-  if (calData[67] == 117) {
-  calData[0] = 117;
-  calCount = 1;
-  }
-  else
-   calCount = 0;        
-  }
-}*/
 
 void receiveCalibration() {
   uint16_t crc;
@@ -257,8 +205,8 @@ void setup() {
     Serial.println("Failed to add peer");
     return;
   }
-  //
-  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv)); // bu değişti
+  //Seting up sending and recv functions
+  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv));
   esp_now_register_send_cb(OnDataSent);
   
   pinMode(22,OUTPUT);
@@ -267,6 +215,8 @@ void setup() {
 void loop() {
   // Reciving the data
   receiveCalibration();
+
+  //If a new value is set, than the new calibration is sent
   if(calVal.offsets_sent[9]!=0)
   {
     esp_now_send(broadcastAddress, (uint8_t *) &calVal, sizeof(calVal));

@@ -23,10 +23,12 @@ Adafruit_Sensor_Calibration_EEPROM cal;
 //Mac address of the messages sent
 uint8_t broadcastAddress[] = {0xA0, 0xA3, 0xB3, 0x1A, 0x4D, 0x60};
 
+//Used for the type of message being sent
 int loopcount = 0;
 
 SailtrackModule stm;
 
+//Connection to Sail Track Core
 class ModuleCallbacks: public SailtrackModuleCallbacks {
 	void onStatusPublish(JsonObject status) {
 		JsonObject info = status.createNestedObject("info");
@@ -95,14 +97,15 @@ void receiveCalibration() {
 
   cal.saveCalibration();
 
-  //ToDo: add a led for notifying the calibiration status !!!
+  StaticJsonDocument<STM_JSON_DOCUMENT_MEDIUM_SIZE> doc;
+  JsonObject CalResult = doc.createNestedObject("CalResult");
+  CalResult["Cal Result"] = "Sucsessful";
+  stm.publish("sensor/imu0/CalResult", doc.as<JsonObjectConst>());
 
-
-  //test for calibration reciving
   pinMode(22,OUTPUT);
   digitalWrite(22,HIGH);
   delay(2000);
-  while(1){}
+  digitalWrite(22,LOW);
 }
 
 
@@ -124,6 +127,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 void setup() {
   Serial.begin(115200);
+
+
   stm.begin("imu_cal", IPAddress(192, 168, 42, 102), new ModuleCallbacks());
 
   Wire.setPins(I2C_SDA_PIN, I2C_SCL_PIN);
@@ -138,7 +143,7 @@ void setup() {
   }
   Serial.println("LSM9DS1 initialized!");
 
-  // Set ranges and sampling rates if desired
+  // Set ranges and sampling rates
   lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);  // ±2g
   lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS); // ±245 degrees per second
   lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);   // ±4 gauss
@@ -149,8 +154,11 @@ void setup() {
     return;
   }
 
+
+  //Seting up sending and recv functions
   esp_now_register_send_cb(OnDataSent);
-  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv)); //this changed  
+  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv));
+
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;  
@@ -175,15 +183,15 @@ void loop() {
   
   loopcount++;
 
+
+  //The ID of messages
   myData.id=0;
   cal1Msg.id=0;
   cal2Msg.id=0;
 
-
-
-
-// Function for the types of data being sent
-// Normaly the data type is RAW but every 50 messages CAL1 is bening sent and every 100 messages CAL2 is being sent
+  // Function for the types of data being sent
+  // Normaly the data type is RAW but every 50 messages CAL1 is bening sent and every 100 messages CAL2 is being sent 
+  //(This is the syntax of MotitonCal)
   if (loopcount == 50 || loopcount > 100) {
         cal1Msg.id=2;
         for (int i = 0; i < 3; i++) {
