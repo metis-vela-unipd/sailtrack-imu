@@ -1,11 +1,12 @@
-#include <Wire.h> //Probably not needed
+//#include <Wire.h> //Probably not needed
 #include <Adafruit_LSM9DS1.h>
-#include <iostream> //Probably not needed
-#include <string> //Probably not needed
+//#include <iostream> //Probably not needed
+//#include <string> //Probably not needed
 #include <esp_now.h>
 #include <WiFi.h>
 #include <Arduino.h> 
 #include <Adafruit_Sensor_Calibration.h>
+#include <SailtrackModule.h>
 
 #define I2C_SDA_PIN 27
 #define I2C_SCL_PIN 25
@@ -24,7 +25,14 @@ uint8_t broadcastAddress[] = {0xA0, 0xA3, 0xB3, 0x1A, 0x4D, 0x60};
 
 int loopcount = 0;
 
+SailtrackModule stm;
 
+class ModuleCallbacks: public SailtrackModuleCallbacks {
+	void onStatusPublish(JsonObject status) {
+		JsonObject info = status.createNestedObject("info");
+		info["status"] = "connected";
+	}
+};
 
 // message structures
 typedef struct raw_message {
@@ -91,11 +99,10 @@ void receiveCalibration() {
 
 
   //test for calibration reciving
-  pinMode(32,OUTPUT);
-  digitalWrite(32,HIGH);
+  pinMode(22,OUTPUT);
+  digitalWrite(22,HIGH);
   delay(2000);
-  digitalWrite(32,LOW);
-  
+  while(1){}
 }
 
 
@@ -116,10 +123,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 
 void setup() {
-  
-  
   Serial.begin(115200);
- 
+  stm.begin("imu_cal", IPAddress(192, 168, 42, 102), new ModuleCallbacks());
 
   Wire.setPins(I2C_SDA_PIN, I2C_SCL_PIN);
 
@@ -137,9 +142,6 @@ void setup() {
   lsm.setupAccel(lsm.LSM9DS1_ACCELRANGE_2G);  // ±2g
   lsm.setupGyro(lsm.LSM9DS1_GYROSCALE_245DPS); // ±245 degrees per second
   lsm.setupMag(lsm.LSM9DS1_MAGGAIN_4GAUSS);   // ±4 gauss
- 
-  // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
@@ -147,9 +149,8 @@ void setup() {
     return;
   }
 
-
   esp_now_register_send_cb(OnDataSent);
-  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv)); //bu değişti  
+  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv)); //this changed  
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;  
